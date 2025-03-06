@@ -1,0 +1,69 @@
+function updateCryptoData() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+  // CoinMarketCap API endpoint and parameters
+  const apiKey = "8f021b55-3c64-40ca-8e95-50ce0dcdefd8"; // Replace with your CoinMarketCap API key
+  const url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest";
+  const params = {
+    start: 1,
+    limit: 50, // Fetch top 50 cryptocurrencies
+    convert: "USD",
+  };
+
+  try {
+    // Make API request with headers
+    const options = {
+      headers: {
+        "X-CMC_PRO_API_KEY": apiKey,
+      },
+      muteHttpExceptions: true, // To handle errors gracefully
+    };
+    const response = UrlFetchApp.fetch(`${url}?${Object.entries(params).map(([key, value]) => `${key}=${value}`).join("&")}`, options);
+    const responseData = JSON.parse(response.getContentText());
+
+    // Log the API response for debugging
+    console.log("API Response:", responseData);
+
+    // Check for API errors
+    if (responseData.status.error_code !== 0) {
+      throw new Error(responseData.status.error_message);
+    }
+
+    // Extract the data array from the response
+    const data = responseData.data;
+
+    // Format the current time
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, "0"); // Ensure 2 digits
+    const minutes = now.getMinutes().toString().padStart(2, "0"); // Ensure 2 digits
+    const seconds = now.getSeconds().toString().padStart(2, "0"); // Ensure 2 digits
+    const time = `${hours}:${minutes}:${seconds}`; // Format: "HH:MM:SS"
+    
+    // Log the extracted data for debugging
+    console.log("Extracted Data:", data);
+
+    // Extract required fields
+    const cryptoList = data.map(coin => [
+      time,
+      coin.name,
+      coin.symbol,
+      coin.quote.USD.price,
+      coin.quote.USD.market_cap,
+      coin.quote.USD.volume_24h,
+      coin.quote.USD.percent_change_24h,
+    ]);
+
+    // Add headers
+    const headers = ["Timestamp", "Name", "Symbol", "Current Price (USD)", "Market Cap", "24h Volume", "24h % Change"];
+    const values = [headers, ...cryptoList];
+
+    // Clear old data and update the sheet
+    sheet.clear();
+    sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
+
+    // Log the update time
+    console.log(`Updated Google Sheet at ${new Date()}`);
+  } catch (e) {
+    console.error(`API Request failed: ${e}`);
+  }
+}
